@@ -32,9 +32,9 @@
       .label {
         font-size: 12px;
         color: black;
-        background-color: transparent; /* 背景を透明に設定 */
+        background-color: transparent;
         padding: 2px;
-        white-space: nowrap; /* テキストが折り返されないように設定 */
+        white-space: nowrap;
       }
 
       #reset-button {
@@ -53,6 +53,18 @@
         position: absolute;
         bottom: 30px;
         right: 10px;
+        background-color: white;
+        padding: 10px;
+        border-radius: 5px;
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      #layers {
+        position: absolute;
+        bottom: 30px;
+        left: 10px;
         background-color: white;
         padding: 10px;
         border-radius: 5px;
@@ -108,6 +120,21 @@
     <!-- Reset button -->
     <button id="reset-button">Reset to Initial Position</button>
 
+    <!-- 施設種別ごとのレイヤー表示・非表示を切り替えるチェックボックス -->
+    <div id="layers">
+      <strong>表示する施設種別を選択</strong><br>
+      <label><input type="checkbox" checked data-layer="公立幼稚園"> 公立幼稚園</label><br>
+      <label><input type="checkbox" checked data-layer="私立幼稚園"> 私立幼稚園</label><br>
+      <label><input type="checkbox" checked data-layer="認可公立保育所"> 認可公立保育所</label><br>
+      <label><input type="checkbox" checked data-layer="認可私立保育所"> 認可私立保育所</label><br>
+      <label><input type="checkbox" checked data-layer="認定こども園（幼保連携型）"> 認定こども園（幼保連携型）</label><br>
+      <label><input type="checkbox" checked data-layer="認定こども園（幼稚園型）"> 認定こども園（幼稚園型）</label><br>
+      <label><input type="checkbox" checked data-layer="認定こども園（保育所型）"> 認定こども園（保育所型）</label><br>
+      <label><input type="checkbox" checked data-layer="認定こども園（地方裁量型）"> 認定こども園（地方裁量型）</label><br>
+      <label><input type="checkbox" checked data-layer="児童館"> 児童館</label><br>
+      <label><input type="checkbox" checked data-layer="その他"> その他</label><br>
+    </div>
+
     <!-- 凡例を表示する部分 -->
     <div id="legend"></div>
 
@@ -126,20 +153,20 @@
         zoom: 11.5
       });
 
-      // 施設種別に対応する色を設定
-      const typeColors = {
-        '公立幼稚園': '#FF5733', // 赤
-        '私立幼稚園': '#33FF57', // 緑
-        '認可公立保育所': '#3357FF', // 青
-        '認可私立保育所': '#FF33A8', // ピンク
-        '認定こども園（幼保連携型）': '#FFD700', // 金色
-        '認定こども園（幼稚園型）': '#9400D3', // 紫
-        '認定こども園（保育所型）': '#FF4500', // オレンジ
-        '認定こども園（地方裁量型）': '#1E90FF', // ドジャーブルー
-        '児童館': '#DAA520', // ゴールデンロッド
-        'その他': '#8B4513', // サドルブラウン
-        '': '#808080' // 空白の種別に灰色を適用
-      };
+const typeColors = {
+  '公立幼稚園': '#FF0000', // 真っ赤
+  '私立幼稚園': '#008000', // 濃い緑
+  '認可公立保育所': '#0000FF', // 真っ青
+  '認可私立保育所': '#FF69B4', // ホットピンク
+  '認定こども園（幼保連携型）': '#FFFF00', // 明るい黄色
+  '認定こども園（幼稚園型）': '#800080', // 濃い紫
+  '認定こども園（保育所型）': '#FFA500', // オレンジ
+  '認定こども園（地方裁量型）': '#00CED1', // ターコイズ
+  '児童館': '#FFD700', // ゴールド
+  'その他': '#A52A2A', // 茶色
+  '': '#808080' // グレー（空白の種別）
+};
+
 
 // 子育て支援施設のデータ
 const facilities = [
@@ -279,24 +306,59 @@ const facilities = [
 ];
 
 
-      // 施設のマーカーを追加（ラベルは表示しない）
-      facilities.forEach(facility => {
-        const el = document.createElement('div');
-        el.className = 'marker';
-        el.style.backgroundColor = typeColors[facility.type] || 'gray';
-        el.style.width = '10px';
-        el.style.height = '10px';
-        el.style.borderRadius = '50%';
+      // 各施設のマーカーを追加する関数
+      function addMarkers(facilityType) {
+        facilities
+          .filter(facility => facility.type === facilityType)
+          .forEach(facility => {
+            const el = document.createElement('div');
+            el.className = 'marker';
+            el.style.backgroundColor = typeColors[facility.type] || 'gray';
+            el.style.width = '10px';
+            el.style.height = '10px';
+            el.style.borderRadius = '50%';
 
-        new mapboxgl.Marker(el)
-          .setLngLat(facility.coords)
-          .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(`
-            <strong>${facility.name}</strong><br/>
-            種別: ${facility.type || '空白'}<br/>
-            電話番号: ${facility.phone}<br/>
-            FAX番号: ${facility.fax}
-          `))
-          .addTo(map);
+            const marker = new mapboxgl.Marker(el)
+              .setLngLat(facility.coords)
+              .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(`
+                <strong>${facility.name}</strong><br/>
+                種別: ${facility.type || '空白'}<br/>
+                電話番号: ${facility.phone}<br/>
+                FAX番号: ${facility.fax}
+              `))
+              .addTo(map);
+
+            // マーカーを種類別に管理
+            mapMarkers[facilityType].push(marker);
+          });
+      }
+
+      // マーカーの表示・非表示を制御
+      const mapMarkers = {
+        '公立幼稚園': [],
+        '私立幼稚園': [],
+        '認可公立保育所': [],
+        '認可私立保育所': [],
+        '認定こども園（幼保連携型）': [],
+        '認定こども園（幼稚園型）': [],
+        '認定こども園（保育所型）': [],
+        '認定こども園（地方裁量型）': [],
+        '児童館': [],
+        'その他': []
+      };
+
+      Object.keys(mapMarkers).forEach(addMarkers);
+
+      document.querySelectorAll('#layers input[type="checkbox"]').forEach(input => {
+        input.addEventListener('change', function() {
+          const facilityType = this.getAttribute('data-layer');
+          if (this.checked) {
+            addMarkers(facilityType);
+          } else {
+            mapMarkers[facilityType].forEach(marker => marker.remove());
+            mapMarkers[facilityType] = [];
+          }
+        });
       });
 
       // Isochrone APIの設定
