@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Child Support Facilities Isochrone Map</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Mapbox GL JS -->
+    <script src="https://api.tiles.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+    <link
+      href="https://api.tiles.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css"
+      rel="stylesheet"
+    />
+    <!-- Mapbox Assembly -->
+    <link
+      href="https://api.mapbox.com/mapbox-assembly/v1.3.0/assembly.min.css"
+      rel="stylesheet"
+    />
+    <script src="https://api.mapbox.com/mapbox-assembly/v1.3.0/assembly.js"></script>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+      }
+
+      #map {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 100%;
+      }
+
+      .label {
+        font-size: 12px;
+        color: black;
+        background-color: transparent; /* 背景を透明に設定 */
+        padding: 2px;
+        white-space: nowrap; /* テキストが折り返されないように設定 */
+      }
+
+      #reset-button {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        padding: 10px;
+        background-color: #314ccd;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+
+      #legend {
+        position: absolute;
+        bottom: 30px;
+        right: 10px;
+        background-color: white;
+        padding: 10px;
+        border-radius: 5px;
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="map"></div>
+
+    <div class="absolute fl my24 mx24 py24 px24 bg-gray-faint round">
+      <form id="params">
+        <h4 class="txt-m txt-bold mb6">Choose a travel mode:</h4>
+        <div class="mb12 mr12 toggle-group align-center">
+          <label class="toggle-container">
+            <input name="profile" type="radio" value="walking" />
+            <div class="toggle toggle--active-null toggle--null">Walking</div>
+          </label>
+          <label class="toggle-container">
+            <input name="profile" type="radio" value="cycling" checked />
+            <div class="toggle toggle--active-null toggle--null">Cycling</div>
+          </label>
+          <label class="toggle-container">
+            <input name="profile" type="radio" value="driving" />
+            <div class="toggle toggle--active-null toggle--null">Driving</div>
+          </label>
+        </div>
+        <h4 class="txt-m txt-bold mb6">Choose a maximum duration:</h4>
+        <div class="mb12 mr12 toggle-group align-center">
+          <label class="toggle-container">
+            <input name="duration" type="radio" value="10" checked />
+            <div class="toggle toggle--active-null toggle--null">10 min</div>
+          </label>
+          <label class="toggle-container">
+            <input name="duration" type="radio" value="20" />
+            <div class="toggle toggle--active-null toggle--null">20 min</div>
+          </label>
+          <label class="toggle-container">
+            <input name="duration" type="radio" value="30" />
+            <div class="toggle toggle--active-null toggle--null">30 min</div>
+          </label>
+          <label class="toggle-container">
+            <input name="duration" type="radio" value="60" />
+            <div class="toggle toggle--active-null toggle--null">1 h</div>
+          </label>
+        </div>
+      </form>
+    </div>
+
+    <!-- Reset button -->
+    <button id="reset-button">Reset to Initial Position</button>
+
+    <!-- 凡例を表示する部分 -->
+    <div id="legend"></div>
+
+    <script>
+      mapboxgl.accessToken = 'pk.eyJ1IjoiYnVkb3RvIiwiYSI6ImNtMDI4YnByNjFuNjYyanNmdXMzNHVvdnkifQ.FzJuyAndS1cOfzz3vLxv4w';
+
+      const initialLon = 132.76568131831556;
+      const initialLat = 33.84166717779429;
+      let lon = initialLon;
+      let lat = initialLat;
+
+      const map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/streets-v12',
+        center: [lon, lat],
+        zoom: 11.5
+      });
+
+      // 施設種別に対応する色を設定
+      const typeColors = {
+        '公立幼稚園': '#FF5733', // 赤
+        '私立幼稚園': '#33FF57', // 緑
+        '認可公立保育所': '#3357FF', // 青
+        '認可私立保育所': '#FF33A8', // ピンク
+        '認定こども園（幼保連携型）': '#FFD700', // 金色
+        '認定こども園（幼稚園型）': '#9400D3', // 紫
+        '認定こども園（保育所型）': '#FF4500', // オレンジ
+        '認定こども園（地方裁量型）': '#1E90FF', // ドジャーブルー
+        '児童館': '#DAA520', // ゴールデンロッド
+        'その他': '#8B4513', // サドルブラウン
+        '': '#808080' // 空白の種別に灰色を適用
+      };
+
+// 子育て支援施設のデータ
+const facilities = [
+    { name: '三津浜幼稚園', type: '公立幼稚園', coords: [132.71882, 33.86113457], phone: '(089)951-0831', fax: '(089)952-9944' },
+    { name: '五明幼稚園', type: '公立幼稚園', coords: [132.8183867, 33.90358063], phone: '(089)977-1630', fax: '(089)977-8644' },
+    { name: '石井幼稚園', type: '公立幼稚園', coords: [132.7745133, 33.81244748], phone: '(089)956-0089', fax: '(089)958-9944' },
+    { name: '荏原幼稚園', type: '公立幼稚園', coords: [132.8167258, 33.76900679], phone: '(089)963-1103', fax: '(089)963-4644' },
+    { name: '坂本幼稚園', type: '公立幼稚園', coords: [132.8249333, 33.74933128], phone: '(089)963-1154', fax: '(089)963-4144' },
+    { name: '愛媛大学教育学部附属幼稚園', type: '公立幼稚園', coords: [132.782917, 33.8440674], phone: '(089)913-7857', fax: '(089)913-7858' },
+    { name: '久枝幼稚園', type: '私立幼稚園', coords: [132.7414691, 33.8726167], phone: '(089)924-8870', fax: '(089)924-4570' },
+    { name: '久米幼稚園', type: '私立幼稚園', coords: [132.8042994, 33.8109561], phone: '(089)975-2422', fax: '(089)975-2422' },
+    { name: '日本基督教団松山番町教会附属親愛幼稚園', type: '私立幼稚園', coords: [132.7683611, 33.8405935], phone: '(089)921-6773', fax: '(089)921-6773' },
+    { name: '松山のぞみ幼稚園', type: '私立幼稚園', coords: [132.797444, 33.8010449], phone: '(089)970-4744', fax: '(089)970-4771' },
+    { name: '堀江幼稚園', type: '私立幼稚園', coords: [132.7492267, 33.9036669], phone: '(089)978-0355', fax: '(089)978-5525' },
+    { name: '梅花幼稚園', type: '私立幼稚園', coords: [132.8313964, 33.8018324], phone: '(089)975-4190', fax: '(089)976-8050' },
+    { name: '学校法人ロザリオ学園 道後聖母幼稚園', type: '私立幼稚園', coords: [132.7804628, 33.8520733], phone: '(089)924-2442', fax: '(089)924-3377' },
+    { name: '学校法人ロザリオ学園 海の星幼稚園', type: '私立幼稚園', coords: [132.7256183, 33.8622203], phone: '(089)951-1717', fax: '(089)952-5766' },
+    { name: '和気幼稚園', type: '私立幼稚園', coords: [132.7376711, 33.8902372], phone: '(089)978-1444', fax: '(089)989-3383' },
+    { name: 'みのり幼稚園', type: '私立幼稚園', coords: [132.7375842, 33.9000156], phone: '(089)979-5710', fax: '(089)978-0880' },
+    { name: 'ロザリオ幼稚園', type: '私立幼稚園', coords: [132.7643505, 33.830594], phone: '(089)941-3394', fax: '(089)913-7610' },
+    { name: '聖カタリナ短期大学附属幼稚園', type: '私立幼稚園', coords: [132.7812107, 33.9760195], phone: '(089)992-3229', fax: '(089)992-3229' },
+    { name: '桃山幼稚園', type: '私立幼稚園', coords: [132.7078361, 33.829571], phone: '(089)971-8491', fax: '(089)968-9730' },
+    { name: '持田幼稚園', type: '私立幼稚園', coords: [132.780508, 33.8441345], phone: '(089)921-8520', fax: '(089)933-4326' },
+    { name: '松山東雲学園附属幼稚園', type: '私立幼稚園', coords: [132.7954837, 33.8329488], phone: '(089)943-1000', fax: '(089)943-1000' },
+    { name: '番町幼稚園', type: '私立幼稚園', coords: [132.7315058, 33.8315297], phone: '(089)972-4686', fax: '(089)972-4747' },
+    { name: '済美幼稚園', type: '私立幼稚園', coords: [132.7254647, 33.8193186], phone: '(089)971-6134', fax: '(089)971-6399' },
+    { name: '慶応幼稚園', type: '私立幼稚園', coords: [132.7908624, 33.7953348], phone: '(089)956-7034', fax: '(089)958-8306' },
+    { name: '木の実幼稚園', type: '私立幼稚園', coords: [132.6984423, 33.813011], phone: '(089)973-1256', fax: '(089)973-1256' },
+    { name: '勝山幼稚園', type: '私立幼稚園', coords: [132.7624275, 33.8492236], phone: '(089)923-0074', fax: '(089)926-9822' },
+    { name: '愛光幼稚舎', type: '私立幼稚園', coords: [132.7763061, 33.8106264], phone: '(089)957-4536', fax: '(089)957-2530' },
+    { name: '松山保育園', type: '認可公立保育所', coords: [132.7756195, 33.83052304], phone: '(089)931-1468', fax: '(089)933-9975' },
+    { name: '高浜保育園', type: '認可公立保育所', coords: [132.708326, 33.8929588], phone: '(089)951-0965', fax: '(089)951‐4965' },
+    { name: '余土保育園', type: '認可公立保育所', coords: [132.7370213, 33.81635985], phone: '(089)972-0801', fax: '(089)971-9901' },
+    { name: '久米保育園', type: '認可公立保育所', coords: [132.8063651, 33.81020923], phone: '(089)975-0201', fax: '(089)970-3902' },
+    { name: '味生保育園', type: '認可公立保育所', coords: [132.7249279, 33.84295662], phone: '(089)951-2016', fax: '(089)951-4963' },
+    { name: '朝美保育園', type: '認可公立保育所', coords: [132.7461327, 33.85106341], phone: '(089)925-1467', fax: '(089)925-9905' },
+    { name: '東雲保育園', type: '認可公立保育所', coords: [132.7747217, 33.84606062], phone: '(089)931-1439', fax: '(089)933-9913' },
+    { name: '八雲保育園', type: '認可公立保育所', coords: [132.7808754, 33.84035411], phone: '(089)941-9771', fax: '(089)933-9918' },
+    { name: 'つばき保育園', type: '認可公立保育所', coords: [132.7628788, 33.81307857], phone: '(089)956-7670', fax: '(089)958-9952' },
+    { name: '山越保育園', type: '認可公立保育所', coords: [132.7554415, 33.85648372], phone: '(089)925-9547', fax: '(089)925-9907' },
+    { name: '国津保育園', type: '認可公立保育所', coords: [132.7903906, 33.97061754], phone: '(089)993-0807', fax: '(089)993-0807' },
+    { name: '浅海保育園', type: '認可公立保育所', coords: [132.801891, 34.01009376], phone: '(089)995-0032', fax: '(089)995-0032' },
+    { name: '粟井保育園', type: '認可公立保育所', coords: [132.7735183, 33.93663158], phone: '(089)994-0193', fax: '(089)994-0193' },
+    { name: '堀江保育園', type: '認可公立保育所', coords: [132.7485112, 33.90491649], phone: '(089)978-0356', fax: '(089)978-5549' },
+    { name: '道後保育園', type: '認可公立保育所', coords: [132.7892457, 33.84966602], phone: '(089)931-4379', fax: '(089)933-9907' },
+    { name: '桑原保育園', type: '認可公立保育所', coords: [132.7946065, 33.83262494], phone: '(089)931-0828', fax: '(089)933-9910' },
+    { name: '小百合保育園', type: '認可公立保育所', coords: [132.8061998, 33.85302617], phone: '(089)977-0228', fax: '(089)977-9981' },
+    { name: '伊台保育園', type: '認可公立保育所', coords: [132.7991192, 33.87797639], phone: '(089)977-0335', fax: '(089)977-9982' },
+    { name: '生石保育園', type: '認可公立保育所', coords: [132.7126938, 33.83079187], phone: '(089)972-0803', fax: '(089)971-9902' },
+    { name: '浮穴保育園', type: '認可公立保育所', coords: [132.7994488, 33.79215834], phone: '(089)976-2202', fax: '(089)970-3903' },
+    { name: '平井保育園', type: '認可公立保育所', coords: [132.8362162, 33.80957732], phone: '(089)975-0126', fax: '(089)970-3904' },
+    { name: '石井保育園', type: '認可公立保育所', coords: [132.774651, 33.81263407], phone: '(089)956-0849', fax: '(089)958-9951' },
+    { name: '中須賀保育園', type: '認可公立保育所', coords: [132.7246594, 33.86478758], phone: '(089)952-9655', fax: '(089)951-4968' },
+    { name: '垣生保育園', type: '認可私立保育所', coords: [132.7047231, 33.81308112], phone: '(089)972-1522', fax: '(089)973-4689' },
+    { name: '小富士保育園', type: '認可私立保育所', coords: [132.7114158, 33.86370769], phone: '(089)951-0676', fax: '(089)951-3951' },
+    { name: '潮見保育園', type: '認可私立保育所', coords: [132.7523455, 33.87651626], phone: '(089)978-1174', fax: '(089)979-5778' },
+    { name: '緑ヶ浜保育園', type: '認可私立保育所', coords: [132.7250783, 33.8988643], phone: '(089)979-0205', fax: '(089)979-4009' },
+    { name: '太山寺保育園', type: '認可私立保育所', coords: [132.728873, 33.885991], phone: '(089)979-2741', fax: '(089)979-2789' },
+    { name: 'のぞみ保育園', type: '認可私立保育所', coords: [132.744087, 33.82247701], phone: '(089)971-9085', fax: '(089)971-9911' },
+    { name: 'あさひ保育園', type: '認可私立保育所', coords: [132.7609019, 33.86944098], phone: '(089)924-5590', fax: '(089)923-4032' },
+    { name: '高木保育園', type: '認可私立保育所', coords: [132.7416676, 33.88486965], phone: '(089)979-0172', fax: '(089)979-6269' },
+    { name: '愛媛保育園', type: '認可私立保育所', coords: [132.7615482, 33.84720739], phone: '(089)933-2751', fax: '(089)933-2789' },
+    { name: '富久保育園', type: '認可私立保育所', coords: [132.7333509, 33.82281547], phone: '(089)971-2992', fax: '(089)972-5473' },
+    { name: '南保育園', type: '認可私立保育所', coords: [132.8219331, 33.77717572], phone: '(089)963-3586', fax: '(089)963-1815' },
+    { name: 'えひめ乳児保育園', type: '認可私立保育所', coords: [132.7642316, 33.85382587], phone: '(089)925-1417', fax: '(089)925-1740' },
+    { name: '松山中央乳児保育園', type: '認可私立保育所', coords: [132.7531287, 33.83782367], phone: '(089)943-2583', fax: '(089)921-5881' },
+    { name: '済生会松山乳児保育園', type: '認可私立保育所', coords: [132.7198485, 33.86007504], phone: '(089)951-3448', fax: '(089)951-4448' },
+    { name: '夜間保育所ふくろうの家', type: '認可私立保育所', coords: [132.7469412, 33.85785024], phone: '(089)911-0336', fax: '(089)911-0337' },
+    { name: '河野保育園', type: '認可私立保育所', coords: [132.7814144, 33.95051291], phone: '(089)992-1421', fax: '(089)992-1422' },
+    { name: '白百合保育園', type: '認可私立保育所', coords: [132.7698127, 33.95313774], phone: '(089)993-1888', fax: '(089)993-1888' },
+    { name: '北条愛児園', type: '認可私立保育所', coords: [132.7734975, 33.97226208], phone: '(089)992-5105', fax: '(089)992-5666' },
+    { name: 'ひよこ保育園', type: '認可私立保育所', coords: [132.7317426, 33.83066062], phone: '(089)974-2816', fax: '(089)974-2889' },
+    { name: '保育所ぶどうの樹', type: '認可私立保育所', coords: [132.7944864, 33.8193689], phone: '(089)970-1442', fax: '(089)909-7291' },
+    { name: 'アユーラキッズルームあむぱむ2', type: '認可私立保育所', coords: [132.7837708, 33.8377248], phone: '(089)947-7188', fax: '(089)947-7081' },
+    { name: '東松山こども園', type: '認定こども園（幼保連携型）', coords: [132.8116007, 33.80329395], phone: '(089)976-2140', fax: '(089)976-8361' },
+    { name: '松山認定こども園　星岡', type: '認定こども園（幼保連携型）', coords: [132.7841909, 33.81940841], phone: '(089)958-2468', fax: '(089)958-5001' },
+    { name: '認定こども園　コイノニア幼稚園　リベカ清水保育園', type: '認定こども園（幼保連携型）', coords: [132.7626044, 33.85072777], phone: '(089)924-7868', fax: '(089)924-7906' },
+    { name: '学校法人　勝愛学園　幼保連携型認定こども園', type: '認定こども園（幼保連携型）', coords: [132.7386398, 33.8218165], phone: '(089)972-2545', fax: '(089)973-9775' },
+    { name: '認定こども園　さくら幼稚園', type: '認定こども園（幼保連携型）', coords: [132.7788746, 33.8368367], phone: '(089)933-2241', fax: '(089)933-2242' },
+    { name: '幼保連携型認定こども園　愛媛幼稚園', type: '認定こども園（幼保連携型）', coords: [132.7714322, 33.8386396], phone: '(089)945-1888', fax: '(089)945-3250' },
+    { name: '幼保連携型認定こども園　法龍寺こども園', type: '認定こども園（幼保連携型）', coords: [132.7648059, 33.834744], phone: '(089)945-9450', fax: '(089)945-9477' },
+    { name: '幼保連携型認定こども園　愛媛星岡幼稚園', type: '認定こども園（幼保連携型）', coords: [132.785431, 33.812724], phone: '(089)956-0900', fax: '(089)956-0912' },
+    { name: '幼保連携型認定こども園　三葉幼稚園', type: '認定こども園（幼保連携型）', coords: [132.7288566, 33.8524028], phone: '(089)952-1777', fax: '(089)952-1858' },
+    { name: '認定こども園　花園幼稚園', type: '認定こども園（幼保連携型）', coords: [132.764117, 33.8581051], phone: '(089)923-0547', fax: '(089)924-9112' },
+    { name: '幼保連携型認定こども園　愛隣こども園', type: '認定こども園（幼保連携型）', coords: [132.7133221, 33.8624279], phone: '(089)951-3463', fax: '(089)995-8521' },
+    { name: '学校法人大護学園　大護さとやま認定こども園', type: '認定こども園（幼保連携型）', coords: [132.8057241, 33.8255434], phone: '(089)975-6002', fax: '(089)975-6004' },
+    { name: '認定こども園　北梅本幼稚園', type: '認定こども園（幼保連携型）', coords: [132.8433944, 33.8106417], phone: '(089)975-1520', fax: '(089)975-0707' },
+    { name: '社会福祉法人　立花会　幼保連携型認定こども園　立花こども園', type: '認定こども園（幼保連携型）', coords: [132.7702273, 33.82765419], phone: '(089)931-8492', fax: '(089)931-8526' },
+    { name: '幼保連携型認定こども園　ゆめの森こども園', type: '認定こども園（幼保連携型）', coords: [132.7567647, 33.83059888], phone: '(089)945-7507', fax: '(089)945-7508' },
+    { name: '幼保連携型認定こども園　未来こども園', type: '認定こども園（幼保連携型）', coords: [132.8002031, 33.80405567], phone: '(089)970-1570', fax: '(089)970-1671' },
+    { name: '幼保連携型認定こども園　未来夢こども園', type: '認定こども園（幼保連携型）', coords: [132.7719315, 33.80358604], phone: '(089)961-1545', fax: '(089)956-3200' },
+    { name: '幼保連携型認定こども園　虹のそらこども園', type: '認定こども園（幼保連携型）', coords: [132.7668741, 33.82074961], phone: '(089)913-7716', fax: '(089)913-2416' },
+    { name: '認定こども園　高縄幼稚園', type: '認定こども園（幼保連携型）', coords: [132.7725504, 33.9412087], phone: '(089)994-2066', fax: '(089)994-2796' },
+    { name: '認定こども園コイノニア幼児園', type: '認定こども園（幼保連携型）', coords: [132.7466297, 33.8576741], phone: '(089)911-0336', fax: '(089)911-0337' },
+    { name: '幼保連携型認定こども園　くたに幼稚園', type: '認定こども園（幼保連携型）', coords: [132.8080652, 33.7671713], phone: '(089)963-0990', fax: '(089)963-0064' },
+    { name: '認定こども園　潮見幼稚園', type: '認定こども園（幼稚園型）', coords: [132.7625722, 33.8736188], phone: '(089)924-5457', fax: '(089)924-5463' },
+    { name: '学校法人綜芸種智院石手学園　認定こども園　石手幼稚園', type: '認定こども園（幼稚園型）', coords: [132.7945436, 33.8496712], phone: '(089)977-0165', fax: '(089)977-0165' },
+    { name: '認定こども園　北条幼稚園', type: '認定こども園（幼稚園型）', coords: [132.773712, 33.979524], phone: '(089)993-1154', fax: '(089)993-1168' },
+    { name: '認定こども園　椿幼稚園', type: '認定こども園（幼稚園型）', coords: [132.7586302, 33.8104504], phone: '(089)957-1611', fax: '(089)957-1132' },
+    { name: '認定こども園　若草幼稚園', type: '認定こども園（幼稚園型）', coords: [132.7536068, 33.8465622], phone: '(089)993-8182', fax: '(089)993-8183' },
+    { name: '認定こども園　すみれ幼稚園', type: '認定こども園（幼稚園型）', coords: [132.7554025, 33.8615367], phone: '(089)926-3770', fax: '(089)926-3782' },
+    { name: '認定こども園　あい幼稚園', type: '認定こども園（幼稚園型）', coords: [132.7773087, 33.9551525], phone: '(089)993-3430', fax: '(089)993-3432' },
+    { name: '認定こども園　育英幼稚園', type: '認定こども園（幼稚園型）', coords: [132.8051476, 33.8440636], phone: '(089)977-5466', fax: '(089)977-2749' },
+    { name: '認定こども園　育英湯山幼稚園', type: '認定こども園（幼稚園型）', coords: [132.8117573, 33.8580388], phone: '(089)977-7548', fax: '(089)977-9410' },
+    { name: '認定こども園　育英第二幼稚園', type: '認定こども園（幼稚園型）', coords: [132.7341089, 33.8567149], phone: '(089)952-6635', fax: '(089)952-2707' },
+    { name: 'もものはなこども園', type: '認定こども園（保育所型）', coords: [132.6741049, 33.901861], phone: '(089)961-2332', fax: '(089)961-3592' },
+    { name: '中島こども園', type: '認定こども園（保育所型）', coords: [132.6288858, 33.9739161], phone: '(089)997-0101', fax: '(089)997-0101' },
+    { name: '松山認定こども園　和泉　和泉保育園', type: '認定こども園（保育所型）', coords: [132.7616128, 33.82542981], phone: '(089)921-3355', fax: '(089)932-4399' },
+    { name: '認定こども園　はなみずき保育園', type: '認定こども園（保育所型）', coords: [132.7589069, 33.81063294], phone: '(089)957-1611', fax: '(089)957-1132' },
+    { name: '認定こども園　福角保育園', type: '認定こども園（保育所型）', coords: [132.7601263, 33.9008132], phone: '(089)978-3258', fax: '(089)978-3299' },
+    { name: '認定こども園　小羊園', type: '認定こども園（保育所型）', coords: [132.7829045, 33.83082768], phone: '(089)943-6857', fax: '(089)943-6896' },
+    { name: '認定こども園　ジャックと豆の木園', type: '認定こども園（保育所型）', coords: [132.7853665, 33.82567269], phone: '(089)931-7911', fax: '(089)997-7917' },
+    { name: '認定こども園　ジャックと豆の木園　余戸園', type: '認定こども園（保育所型）', coords: [132.7351421, 33.8108294], phone: '(089)965-1330', fax: '(089)965-1330' },
+    { name: '認定こども園　松山隣保館保育園', type: '認定こども園（保育所型）', coords: [132.755524, 33.84437045], phone: '(089)921-6664', fax: '(089)921-6683' },
+    { name: '認定こども園　愛光保育園', type: '認定こども園（保育所型）', coords: [132.748632, 33.8467955], phone: '(089)924-4535', fax: '(089)924-4579' },
+    { name: '認定こども園城北愛児園', type: '認定こども園（保育所型）', coords: [132.7383693, 33.8871986], phone: '(089)978-4430', fax: '(089)978-4430' },
+    { name: '認定こども園　こどものくに保育園', type: '認定こども園（保育所型）', coords: [132.7336229, 33.84464849], phone: '(089)926-5240', fax: '(089)924-8190' },
+    { name: '認定こども園　慈童保育園', type: '認定こども園（保育所型）', coords: [132.7889503, 33.98694556], phone: '(089)992-0792', fax: '(089)993-0799' },
+    { name: '認定こども園　ゆうゆう', type: '認定こども園（保育所型）', coords: [132.7667963, 33.8209869], phone: '(089)934-5115', fax: '(089)934-5115' },
+    { name: '認定こども園　アイドル園', type: '認定こども園（保育所型）', coords: [132.7423326, 33.8320608], phone: '(089)954-4034', fax: '(089)954-4091' },
+    { name: '認定こども園つくし', type: '認定こども園（地方裁量型）', coords: [132.746096, 33.895016], phone: '(089)978-2464', fax: '(089)978-2464' },
+    { name: '認定こども園　コモドまつすえ園', type: '認定こども園（地方裁量型）', coords: [132.7887323, 33.8262535], phone: '(089)975-5020', fax: '(089)975-5020' },
+    { name: '松山市中央児童センター', type: '児童館', coords: [132.7616022, 33.84679644], phone: '(089)933-9311', fax: '' },
+    { name: '松山市南部児童センター', type: '児童館', coords: [132.764759, 33.81107486], phone: '(089)969-1005', fax: '' },
+    { name: '松山市北条児童センター', type: '児童館', coords: [132.7818593, 33.95787961], phone: '(089)992-9559', fax: '' },
+    { name: '松山市新玉児童館', type: '児童館', coords: [132.7594883, 33.83801048], phone: '(089)943-5801', fax: '' },
+    { name: '松山市味生児童館', type: '児童館', coords: [132.7260866, 33.84384582], phone: '(089)953-5051', fax: '' },
+    { name: '松山市久米児童館', type: '児童館', coords: [132.8061835, 33.81008524], phone: '(089)970-0907', fax: '' },
+    { name: '松山市久枝児童館', type: '児童館', coords: [132.737499, 33.8691191], phone: '(089)922-3800', fax: '' },
+    { name: '松山市畑寺児童館', type: '児童館', coords: [132.8044415, 33.8252426], phone: '(089)905-9614', fax: '' },
+    { name: 'カタリナ子育て支援ひろば　ぽけっと', type: 'その他', coords: [132.782054, 33.9757267], phone: '(089)993-0750', fax: '' },
+    { name: 'しののめ広場　たんぽぽ', type: 'その他', coords: [132.7964033, 33.832395], phone: '(090)3063-6417', fax: '' },
+    { name: '子育てひろば　くーふぁん', type: 'その他', coords: [132.7404688, 33.8731654], phone: '(089)989-0390', fax: '' },
+    { name: '子育てひろば　くりっぷ', type: 'その他', coords: [132.7165044, 33.824892], phone: '(089)994-6922', fax: '' },
+    { name: '子育てひろば　ToiToiToi', type: 'その他', coords: [132.7554749, 33.8354172], phone: '(089)909-4540', fax: '' },
+    { name: '子ども総合相談センター事務所「ほっとHOTひろば」', type: 'その他', coords: [132.757764, 33.8524213], phone: '(089)922-2399', fax: '' },
+];
+
+      // 施設のマーカーを追加（ラベルは表示しない）
+      facilities.forEach(facility => {
+        const el = document.createElement('div');
+        el.className = 'marker';
+        el.style.backgroundColor = typeColors[facility.type] || 'gray';
+        el.style.width = '10px';
+        el.style.height = '10px';
+        el.style.borderRadius = '50%';
+
+        new mapboxgl.Marker(el)
+          .setLngLat(facility.coords)
+          .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(`
+            <strong>${facility.name}</strong><br/>
+            種別: ${facility.type || '空白'}<br/>
+            電話番号: ${facility.phone}<br/>
+            FAX番号: ${facility.fax}
+          `))
+          .addTo(map);
+      });
+
+      // Isochrone APIの設定
+      const params = document.getElementById('params');
+      const urlBase = 'https://api.mapbox.com/isochrone/v1/mapbox/';
+      let profile = 'cycling';
+      let minutes = 10;
+
+      async function getIso() {
+        try {
+          const query = await fetch(
+            `${urlBase}${profile}/${lon},${lat}?contours_minutes=${minutes}&polygons=true&access_token=${mapboxgl.accessToken}`,
+            { method: 'GET' }
+          );
+          if (!query.ok) {
+            throw new Error(`API request failed with status ${query.status}`);
+          }
+          const data = await query.json();
+          map.getSource('iso').setData(data);
+        } catch (error) {
+          console.error('Error fetching Isochrone data:', error);
+          alert('Isochrone data could not be retrieved. Please check the console for details.');
+        }
+      }
+
+      params.addEventListener('change', (event) => {
+        if (event.target.name === 'profile') {
+          profile = event.target.value;
+        } else if (event.target.name === 'duration') {
+          minutes = parseInt(event.target.value, 10);
+        }
+        getIso();
+      });
+
+      map.on('load', () => {
+        map.addSource('iso', {
+          type: 'geojson',
+          data: {
+            'type': 'FeatureCollection',
+            'features': []
+          }
+        });
+
+        map.addLayer(
+          {
+            'id': 'isoLayer',
+            'type': 'fill',
+            'source': 'iso',
+            'layout': {},
+            'paint': {
+              'fill-color': '#5a3fc0',
+              'fill-opacity': 0.3
+            }
+          },
+          'poi-label'
+        );
+
+        // 初期位置でのIsochroneを表示
+        getIso();
+      });
+
+      // マーカーがドラッグされたときの処理
+      const originA = new mapboxgl.Marker({
+        draggable: true,
+        color: '#314ccd'
+      })
+        .setLngLat([lon, lat])
+        .addTo(map);
+
+      function onDragEndA() {
+        const lngLat = originA.getLngLat();
+        lon = lngLat.lng;
+        lat = lngLat.lat;
+        getIso();
+      }
+
+      originA.on("dragend", onDragEndA);
+
+      // Resetボタンがクリックされたときの処理
+      document.getElementById('reset-button').addEventListener('click', () => {
+        lon = initialLon;
+        lat = initialLat;
+        originA.setLngLat([lon, lat]).addTo(map);
+        getIso();
+      });
+
+      // 凡例を作成
+      const legend = document.getElementById('legend');
+      legend.innerHTML = '<strong>施設種別凡例</strong><br>';
+      for (const [type, color] of Object.entries(typeColors)) {
+        legend.innerHTML += `<div><span style="display:inline-block;width:10px;height:10px;background-color:${color};margin-right:5px;"></span>${type || '空白'}</div>`;
+      }
+    </script>
+  </body>
+</html>
