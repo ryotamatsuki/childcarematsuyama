@@ -47,11 +47,12 @@
         border: none;
         border-radius: 5px;
         cursor: pointer;
+        z-index: 1000;
       }
 
       #legend {
         position: absolute;
-        bottom: 30px;
+        bottom: 100px;
         right: 10px;
         background-color: white;
         padding: 10px;
@@ -59,6 +60,7 @@
         box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
         font-size: 12px;
         line-height: 1.5;
+        z-index: 999;
       }
 
       #layers {
@@ -71,6 +73,27 @@
         box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
         font-size: 12px;
         line-height: 1.5;
+        z-index: 1000;
+      }
+
+      @media (max-width: 768px) {
+        #reset-button {
+          padding: 8px;
+          font-size: 14px;
+        }
+
+        #legend, #layers {
+          font-size: 10px;
+          padding: 8px;
+        }
+
+        #legend {
+          bottom: 150px;
+        }
+
+        #layers {
+          bottom: 60px;
+        }
       }
     </style>
   </head>
@@ -133,6 +156,7 @@
       <label><input type="checkbox" checked data-layer="認定こども園（地方裁量型）"> 認定こども園（地方裁量型）</label><br>
       <label><input type="checkbox" checked data-layer="児童館"> 児童館</label><br>
       <label><input type="checkbox" checked data-layer="その他"> その他</label><br>
+      <label><input type="checkbox" checked data-layer="空白"> 空白</label><br>
     </div>
 
     <!-- 凡例を表示する部分 -->
@@ -153,23 +177,25 @@
         zoom: 11.5
       });
 
-const typeColors = {
-  '公立幼稚園': '#FF0000', // 真っ赤
-  '私立幼稚園': '#008000', // 濃い緑
-  '認可公立保育所': '#0000FF', // 真っ青
-  '認可私立保育所': '#FF69B4', // ホットピンク
-  '認定こども園（幼保連携型）': '#FFFF00', // 明るい黄色
-  '認定こども園（幼稚園型）': '#800080', // 濃い紫
-  '認定こども園（保育所型）': '#FFA500', // オレンジ
-  '認定こども園（地方裁量型）': '#00CED1', // ターコイズ
-  '児童館': '#FFD700', // ゴールド
-  'その他': '#A52A2A', // 茶色
-  '': '#808080' // グレー（空白の種別）
-};
+      const typeColors = {
+        '公立幼稚園': '#FF0000', // 真っ赤
+        '私立幼稚園': '#008000', // 濃い緑
+        '認可公立保育所': '#0000FF', // 真っ青
+        '認可私立保育所': '#FF69B4', // ホットピンク
+        '認定こども園（幼保連携型）': '#FFFF00', // 明るい黄色
+        '認定こども園（幼稚園型）': '#800080', // 濃い紫
+        '認定こども園（保育所型）': '#FFA500', // オレンジ
+        '認定こども園（地方裁量型）': '#00CED1', // ターコイズ
+        '児童館': '#FFD700', // ゴールド
+        'その他': '#8B4513', // サドルブラウン
+        '空白': '#808080' // グレー
+      };
 
+      const markers = [];
 
-// 子育て支援施設のデータ
+     // 子育て支援施設のデータ
 const facilities = [
+    // 幼稚園データ
     { name: '三津浜幼稚園', type: '公立幼稚園', coords: [132.718820, 33.861135], phone: '(089)951-0831', fax: '(089)952-9944' },
     { name: '五明幼稚園', type: '公立幼稚園', coords: [132.818387, 33.903581], phone: '(089)977-1630', fax: '(089)977-8644' },
     { name: '石井幼稚園', type: '公立幼稚園', coords: [132.774513, 33.812447], phone: '(089)956-0089', fax: '(089)958-9944' },
@@ -197,6 +223,8 @@ const facilities = [
     { name: '木の実幼稚園', type: '私立幼稚園', coords: [132.698442, 33.813011], phone: '(089)973-1256', fax: '(089)973-1256' },
     { name: '勝山幼稚園', type: '私立幼稚園', coords: [132.762428, 33.849224], phone: '(089)923-0074', fax: '(089)926-9822' },
     { name: '愛光幼稚舎', type: '私立幼稚園', coords: [132.776306, 33.810626], phone: '(089)957-4536', fax: '(089)957-2530' },
+
+    // 認可公立保育所と認可私立保育所のデータ
     { name: '松山保育園', type: '認可公立保育所', coords: [132.775620, 33.830523], phone: '(089)931-1468', fax: '(089)933-9975' },
     { name: '高浜保育園', type: '認可公立保育所', coords: [132.708326, 33.892959], phone: '(089)951-0965', fax: '(089)951‐4965' },
     { name: '余土保育園', type: '認可公立保育所', coords: [132.737021, 33.816360], phone: '(089)972-0801', fax: '(089)971-9901' },
@@ -212,7 +240,7 @@ const facilities = [
     { name: '粟井保育園', type: '認可公立保育所', coords: [132.773518, 33.936632], phone: '(089)994-0193', fax: '(089)994-0193' },
     { name: '堀江保育園', type: '認可公立保育所', coords: [132.748511, 33.904916], phone: '(089)978-0356', fax: '(089)978-5549' },
     { name: '道後保育園', type: '認可公立保育所', coords: [132.789246, 33.849666], phone: '(089)931-4379', fax: '(089)933-9907' },
-    { name: '桑原保育園', type: '認可公立保育所', coords: [132.794606, 33.832625], phone: '(089)931-0828', fax: '(089)933-9910' },
+    { name: '桑原保育園', type: '認可公立保育所', coords: [132.794607, 33.832625], phone: '(089)931-0828', fax: '(089)933-9910' },
     { name: '小百合保育園', type: '認可公立保育所', coords: [132.806200, 33.853026], phone: '(089)977-0228', fax: '(089)977-9981' },
     { name: '伊台保育園', type: '認可公立保育所', coords: [132.799119, 33.877976], phone: '(089)977-0335', fax: '(089)977-9982' },
     { name: '生石保育園', type: '認可公立保育所', coords: [132.712694, 33.830792], phone: '(089)972-0803', fax: '(089)971-9902' },
@@ -241,6 +269,8 @@ const facilities = [
     { name: 'ひよこ保育園', type: '認可私立保育所', coords: [132.731743, 33.830661], phone: '(089)974-2816', fax: '(089)974-2889' },
     { name: '保育所ぶどうの樹', type: '認可私立保育所', coords: [132.794486, 33.819369], phone: '(089)970-1442', fax: '(089)909-7291' },
     { name: 'アユーラキッズルームあむぱむ2', type: '認可私立保育所', coords: [132.783771, 33.837725], phone: '(089)947-7188', fax: '(089)947-7081' },
+
+    // 認定こども園データ
     { name: '東松山こども園', type: '認定こども園（幼保連携型）', coords: [132.811601, 33.803294], phone: '(089)976-2140', fax: '(089)976-8361' },
     { name: '松山認定こども園　星岡', type: '認定こども園（幼保連携型）', coords: [132.784191, 33.819408], phone: '(089)958-2468', fax: '(089)958-5001' },
     { name: '認定こども園　コイノニア幼稚園　リベカ清水保育園', type: '認定こども園（幼保連携型）', coords: [132.762604, 33.850728], phone: '(089)924-7868', fax: '(089)924-7906' },
@@ -289,6 +319,8 @@ const facilities = [
     { name: '認定こども園　アイドル園', type: '認定こども園（保育所型）', coords: [132.742333, 33.832061], phone: '(089)954-4034', fax: '(089)954-4091' },
     { name: '認定こども園つくし', type: '認定こども園（地方裁量型）', coords: [132.746096, 33.895016], phone: '(089)978-2464', fax: '(089)978-2464' },
     { name: '認定こども園　コモドまつすえ園', type: '認定こども園（地方裁量型）', coords: [132.788732, 33.826254], phone: '(089)975-5020', fax: '(089)975-5020' },
+
+    // 児童館とその他の施設データ
     { name: '松山市中央児童センター', type: '児童館', coords: [132.761602, 33.846796], phone: '(089)933-9311', fax: '' },
     { name: '松山市南部児童センター', type: '児童館', coords: [132.764759, 33.811075], phone: '(089)969-1005', fax: '' },
     { name: '松山市北条児童センター', type: '児童館', coords: [132.781859, 33.957880], phone: '(089)992-9559', fax: '' },
@@ -302,66 +334,67 @@ const facilities = [
     { name: '子育てひろば　くーふぁん', type: 'その他', coords: [132.740469, 33.873165], phone: '(089)989-0390', fax: '' },
     { name: '子育てひろば　くりっぷ', type: 'その他', coords: [132.716504, 33.824892], phone: '(089)994-6922', fax: '' },
     { name: '子育てひろば　ToiToiToi', type: 'その他', coords: [132.755475, 33.835417], phone: '(089)909-4540', fax: '' },
-    { name: '子ども総合相談センター事務所「ほっとHOTひろば」', type: 'その他', coords: [132.757764, 33.852421], phone: '(089)922-2399', fax: '' },
+    { name: '子ども総合相談センター事務所「ほっとHOTひろば」', type: 'その他', coords: [132.757764, 33.852421], phone: '(089)922-2399', fax: '' }
+
+   // type空白データ
+    { name: 'すまいる保育園', type: '', coords: [132.768011, 33.840944], phone: '(089)904-7007', fax: '' },
+    { name: 'まちっこ保育園', type: '', coords: [132.771430, 33.836127], phone: '(089)909-3960', fax: '' },
+    { name: 'ひめっこ保育園', type: '', coords: [132.764478, 33.833658], phone: '080-2981-0655', fax: '' },
+    { name: 'なのはな保育園', type: '', coords: [132.759135, 33.811547], phone: '(089)956-1188', fax: '' },
+    { name: '天山保育園', type: '', coords: [132.778709, 33.819558], phone: '080-6282-5206', fax: '' },
+    { name: 'さかのうえ保育園 小規模保育園 溝辺園', type: '', coords: [132.803340, 33.848815], phone: '(089)909-9994', fax: '' },
+    { name: '小規模保育事業所 ひかり', type: '', coords: [132.804965, 33.839332], phone: '(089)948-4402', fax: '' },
+    { name: '小規模保育園 おひさま', type: '', coords: [132.774357, 33.809392], phone: '(089)905-2500', fax: '' },
+    { name: '小規模保育園 みその', type: '', coords: [132.727932, 33.815293], phone: '(089)972-3250', fax: '' },
+    { name: '小規模保育所 うちみや保育園', type: '', coords: [132.748672, 33.895721], phone: '(089)989-7200', fax: '' },
+    { name: 'かしの木園', type: '', coords: [132.746371, 33.844970], phone: '(089)922-4214', fax: '' },
+    { name: 'アユーラキッズルームあむぱむ', type: '', coords: [132.753599, 33.841321], phone: '(089)986-9534', fax: '' },
+    { name: 'アユーラキッズルームあむぱむ空港通り', type: '', coords: [132.724851, 33.830831], phone: '(089)974-5618', fax: '' },
+    { name: '三福5starインターナショナル保育園', type: '', coords: [132.778823, 33.831904], phone: '(089)906-7552', fax: '' },
+    { name: '小規模保育所 どれみ保育園', type: '', coords: [132.816805, 33.806366], phone: '(089)975-1235', fax: '' },
+    { name: 'ついてる保育園', type: '', coords: [132.772954, 33.805383], phone: '(089)909-5110', fax: '' },
+    { name: '和泉南保育園', type: '', coords: [132.760190, 33.818340], phone: '(089)909-3122', fax: '' },
+    { name: '小規模保育園 夢じゃき園 HABU', type: '', coords: [132.702087, 33.813580], phone: '(089)994-5919', fax: '' },
+    { name: '小規模保育所 ジャックと豆の木園 えだまつ第2', type: '', coords: [132.783256, 33.825689], phone: '(089)931-6611', fax: '' },
+    { name: 'キッズパオあおぞら園', type: '', coords: [132.754616, 33.843894], phone: '(089)961-4554', fax: '' },
+    { name: 'アユーラキッズルームあむぱむ３', type: '', coords: [132.782088, 33.838222], phone: '(089)968-1152', fax: '' },
+    { name: 'ここえみ保育園', type: '', coords: [132.823722, 33.806072], phone: '(089)976-0909', fax: '' },
+    { name: '小規模保育園 夢じゃき園UKENA', type: '', coords: [132.801709, 33.793218], phone: '(089)909-3394', fax: '' },
+    { name: '南高井保育園', type: '', coords: [132.806800, 33.792759], phone: '(089)909-5866', fax: '' },
+    { name: 'カメリア保育園', type: '', coords: [132.613478, 33.871599], phone: '(089)926-2545', fax: '' },
+    { name: 'ユーミー保育園たかのこ', type: '', coords: [132.818535, 33.812351], phone: '(089)955-7373', fax: '' },
+    { name: 'きらきらキッズ', type: '', coords: [132.760325, 33.901668], phone: '(089)995-8528', fax: '' },
+    { name: 'ウィルビィ バンビーノ', type: '', coords: [132.797583, 33.829840], phone: '(089)993-7235', fax: '' },
+    { name: 'おだんご', type: '', coords: [132.750271, 33.888354], phone: '(089)989-8810', fax: '' },
+    { name: '医療法人慈孝会 福角病院 さくら保育園', type: '', coords: [132.766947, 33.904826], phone: '(089)979-2055', fax: '' },
+    { name: 'まつやま大手町保育所', type: '', coords: [132.755366, 33.840512], phone: '(089)904-1963', fax: '' },
+    { name: 'もりもりキッズ', type: '', coords: [132.757141, 33.940974], phone: '(089)994-3366', fax: '' },
+    { name: '保育園 フォーキッズミネルワ', type: '', coords: [132.715932, 33.817720], phone: '(089)972-7171', fax: '' },
 ];
 
 
-      // 各施設のマーカーを追加する関数
-      function addMarkers(facilityType) {
-        facilities
-          .filter(facility => facility.type === facilityType)
-          .forEach(facility => {
-            const el = document.createElement('div');
-            el.className = 'marker';
-            el.style.backgroundColor = typeColors[facility.type] || 'gray';
-            el.style.width = '10px';
-            el.style.height = '10px';
-            el.style.borderRadius = '50%';
+      facilities.forEach(facility => {
+        const el = document.createElement('div');
+        el.className = 'marker';
+        el.style.backgroundColor = typeColors[facility.type || '空白'];
+        el.style.width = '10px';
+        el.style.height = '10px';
+        el.style.borderRadius = '50%';
 
-            const marker = new mapboxgl.Marker(el)
-              .setLngLat(facility.coords)
-              .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(`
-                <strong>${facility.name}</strong><br/>
-                種別: ${facility.type || '空白'}<br/>
-                電話番号: ${facility.phone}<br/>
-                FAX番号: ${facility.fax}
-              `))
-              .addTo(map);
+        const marker = new mapboxgl.Marker(el)
+          .setLngLat(facility.coords)
+          .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(`
+            <strong>${facility.name}</strong><br/>
+            種別: ${facility.type || '空白'}<br/>
+            電話番号: ${facility.phone}<br/>
+            FAX番号: ${facility.fax}
+          `))
+          .addTo(map);
 
-            // マーカーを種類別に管理
-            mapMarkers[facilityType].push(marker);
-          });
-      }
-
-      // マーカーの表示・非表示を制御
-      const mapMarkers = {
-        '公立幼稚園': [],
-        '私立幼稚園': [],
-        '認可公立保育所': [],
-        '認可私立保育所': [],
-        '認定こども園（幼保連携型）': [],
-        '認定こども園（幼稚園型）': [],
-        '認定こども園（保育所型）': [],
-        '認定こども園（地方裁量型）': [],
-        '児童館': [],
-        'その他': []
-      };
-
-      Object.keys(mapMarkers).forEach(addMarkers);
-
-      document.querySelectorAll('#layers input[type="checkbox"]').forEach(input => {
-        input.addEventListener('change', function() {
-          const facilityType = this.getAttribute('data-layer');
-          if (this.checked) {
-            addMarkers(facilityType);
-          } else {
-            mapMarkers[facilityType].forEach(marker => marker.remove());
-            mapMarkers[facilityType] = [];
-          }
-        });
+        el.dataset.layer = facility.type || '空白';
+        markers.push({ marker, layer: facility.type || '空白' });
       });
 
-      // Isochrone APIの設定
       const params = document.getElementById('params');
       const urlBase = 'https://api.mapbox.com/isochrone/v1/mapbox/';
       let profile = 'cycling';
@@ -416,11 +449,9 @@ const facilities = [
           'poi-label'
         );
 
-        // 初期位置でのIsochroneを表示
         getIso();
       });
 
-      // マーカーがドラッグされたときの処理
       const originA = new mapboxgl.Marker({
         draggable: true,
         color: '#314ccd'
@@ -437,7 +468,6 @@ const facilities = [
 
       originA.on("dragend", onDragEndA);
 
-      // Resetボタンがクリックされたときの処理
       document.getElementById('reset-button').addEventListener('click', () => {
         lon = initialLon;
         lat = initialLat;
@@ -445,12 +475,23 @@ const facilities = [
         getIso();
       });
 
-      // 凡例を作成
       const legend = document.getElementById('legend');
       legend.innerHTML = '<strong>施設種別凡例</strong><br>';
       for (const [type, color] of Object.entries(typeColors)) {
-        legend.innerHTML += `<div><span style="display:inline-block;width:10px;height:10px;background-color:${color};margin-right:5px;"></span>${type || '空白'}</div>`;
+        legend.innerHTML += `<div><span style="display:inline-block;width:10px;height:10px;background-color:${color};margin-right:5px;"></span>${type}</div>`;
       }
+
+      document.querySelectorAll('#layers input[type=checkbox]').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+          const layer = this.dataset.layer;
+          const isVisible = this.checked;
+          markers.forEach(({ marker, layer: markerLayer }) => {
+            if (markerLayer === layer) {
+              marker.getElement().style.display = isVisible ? 'block' : 'none';
+            }
+          });
+        });
+      });
     </script>
   </body>
 </html>
