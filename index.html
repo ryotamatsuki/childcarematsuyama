@@ -47,12 +47,11 @@
         border: none;
         border-radius: 5px;
         cursor: pointer;
-        z-index: 1000;
       }
 
       #legend {
         position: absolute;
-        bottom: 100px;
+        bottom: 30px;
         right: 10px;
         background-color: white;
         padding: 10px;
@@ -60,12 +59,11 @@
         box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
         font-size: 12px;
         line-height: 1.5;
-        z-index: 999;
       }
 
       #layers {
         position: absolute;
-        bottom: 30px;
+        bottom: 80px; /* 重ならないように調整 */
         left: 10px;
         background-color: white;
         padding: 10px;
@@ -73,27 +71,6 @@
         box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
         font-size: 12px;
         line-height: 1.5;
-        z-index: 1000;
-      }
-
-      @media (max-width: 768px) {
-        #reset-button {
-          padding: 8px;
-          font-size: 14px;
-        }
-
-        #legend, #layers {
-          font-size: 10px;
-          padding: 8px;
-        }
-
-        #legend {
-          bottom: 150px;
-        }
-
-        #layers {
-          bottom: 60px;
-        }
       }
     </style>
   </head>
@@ -177,23 +154,22 @@
         zoom: 11.5
       });
 
+      // 施設種別に対応する色を設定
       const typeColors = {
-        '公立幼稚園': '#FF0000', // 真っ赤
-        '私立幼稚園': '#008000', // 濃い緑
-        '認可公立保育所': '#0000FF', // 真っ青
-        '認可私立保育所': '#FF69B4', // ホットピンク
-        '認定こども園（幼保連携型）': '#FFFF00', // 明るい黄色
-        '認定こども園（幼稚園型）': '#800080', // 濃い紫
-        '認定こども園（保育所型）': '#FFA500', // オレンジ
-        '認定こども園（地方裁量型）': '#00CED1', // ターコイズ
-        '児童館': '#FFD700', // ゴールド
+        '公立幼稚園': '#FF5733', // 赤
+        '私立幼稚園': '#33FF57', // 緑
+        '認可公立保育所': '#3357FF', // 青
+        '認可私立保育所': '#FF33A8', // ピンク
+        '認定こども園（幼保連携型）': '#FFD700', // 金色
+        '認定こども園（幼稚園型）': '#9400D3', // 紫
+        '認定こども園（保育所型）': '#FF4500', // オレンジ
+        '認定こども園（地方裁量型）': '#1E90FF', // ドジャーブルー
+        '児童館': '#DAA520', // ゴールデンロッド
         'その他': '#8B4513', // サドルブラウン
-        '空白': '#808080' // グレー
+        '空白': '#808080' // 空白の種別に灰色を適用
       };
 
-      const markers = [];
-
-     // 子育て支援施設のデータ
+// 子育て支援施設のデータ
 const facilities = [
     // 幼稚園データ
     { name: '三津浜幼稚園', type: '公立幼稚園', coords: [132.718820, 33.861135], phone: '(089)951-0831', fax: '(089)952-9944' },
@@ -334,7 +310,7 @@ const facilities = [
     { name: '子育てひろば　くーふぁん', type: 'その他', coords: [132.740469, 33.873165], phone: '(089)989-0390', fax: '' },
     { name: '子育てひろば　くりっぷ', type: 'その他', coords: [132.716504, 33.824892], phone: '(089)994-6922', fax: '' },
     { name: '子育てひろば　ToiToiToi', type: 'その他', coords: [132.755475, 33.835417], phone: '(089)909-4540', fax: '' },
-    { name: '子ども総合相談センター事務所「ほっとHOTひろば」', type: 'その他', coords: [132.757764, 33.852421], phone: '(089)922-2399', fax: '' }
+    { name: '子ども総合相談センター事務所「ほっとHOTひろば」', type: 'その他', coords: [132.757764, 33.852421], phone: '(089)922-2399', fax: '' },
 
    // type空白データ
     { name: 'すまいる保育園', type: '', coords: [132.768011, 33.840944], phone: '(089)904-7007', fax: '' },
@@ -369,32 +345,67 @@ const facilities = [
     { name: '医療法人慈孝会 福角病院 さくら保育園', type: '', coords: [132.766947, 33.904826], phone: '(089)979-2055', fax: '' },
     { name: 'まつやま大手町保育所', type: '', coords: [132.755366, 33.840512], phone: '(089)904-1963', fax: '' },
     { name: 'もりもりキッズ', type: '', coords: [132.757141, 33.940974], phone: '(089)994-3366', fax: '' },
-    { name: '保育園 フォーキッズミネルワ', type: '', coords: [132.715932, 33.817720], phone: '(089)972-7171', fax: '' },
+    { name: '保育園 フォーキッズミネルワ', type: '', coords: [132.715932, 33.817720], phone: '(089)972-7171', fax: '' }
 ];
 
 
-      facilities.forEach(facility => {
-        const el = document.createElement('div');
-        el.className = 'marker';
-        el.style.backgroundColor = typeColors[facility.type || '空白'];
-        el.style.width = '10px';
-        el.style.height = '10px';
-        el.style.borderRadius = '50%';
+      // 各施設のマーカーを追加する関数
+      function addMarkers(facilityType) {
+        facilities
+          .filter(facility => facility.type === facilityType)
+          .forEach(facility => {
+            const el = document.createElement('div');
+            el.className = 'marker';
+            el.style.backgroundColor = typeColors[facility.type] || 'gray';
+            el.style.width = '10px';
+            el.style.height = '10px';
+            el.style.borderRadius = '50%';
 
-        const marker = new mapboxgl.Marker(el)
-          .setLngLat(facility.coords)
-          .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(`
-            <strong>${facility.name}</strong><br/>
-            種別: ${facility.type || '空白'}<br/>
-            電話番号: ${facility.phone}<br/>
-            FAX番号: ${facility.fax}
-          `))
-          .addTo(map);
+            const marker = new mapboxgl.Marker(el)
+              .setLngLat(facility.coords)
+              .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(`
+                <strong>${facility.name}</strong><br/>
+                種別: ${facility.type || '空白'}<br/>
+                電話番号: ${facility.phone}<br/>
+                FAX番号: ${facility.fax}
+              `))
+              .addTo(map);
 
-        el.dataset.layer = facility.type || '空白';
-        markers.push({ marker, layer: facility.type || '空白' });
+            // マーカーを種類別に管理
+            mapMarkers[facilityType].push(marker);
+          });
+      }
+
+      // マーカーの表示・非表示を制御
+      const mapMarkers = {
+        '公立幼稚園': [],
+        '私立幼稚園': [],
+        '認可公立保育所': [],
+        '認可私立保育所': [],
+        '認定こども園（幼保連携型）': [],
+        '認定こども園（幼稚園型）': [],
+        '認定こども園（保育所型）': [],
+        '認定こども園（地方裁量型）': [],
+        '児童館': [],
+        'その他': [],
+        '空白': []
+      };
+
+      Object.keys(mapMarkers).forEach(addMarkers);
+
+      document.querySelectorAll('#layers input[type="checkbox"]').forEach(input => {
+        input.addEventListener('change', function() {
+          const facilityType = this.getAttribute('data-layer');
+          if (this.checked) {
+            addMarkers(facilityType);
+          } else {
+            mapMarkers[facilityType].forEach(marker => marker.remove());
+            mapMarkers[facilityType] = [];
+          }
+        });
       });
 
+      // Isochrone APIの設定
       const params = document.getElementById('params');
       const urlBase = 'https://api.mapbox.com/isochrone/v1/mapbox/';
       let profile = 'cycling';
@@ -449,9 +460,11 @@ const facilities = [
           'poi-label'
         );
 
+        // 初期位置でのIsochroneを表示
         getIso();
       });
 
+      // マーカーがドラッグされたときの処理
       const originA = new mapboxgl.Marker({
         draggable: true,
         color: '#314ccd'
@@ -468,6 +481,7 @@ const facilities = [
 
       originA.on("dragend", onDragEndA);
 
+      // Resetボタンがクリックされたときの処理
       document.getElementById('reset-button').addEventListener('click', () => {
         lon = initialLon;
         lat = initialLat;
@@ -475,23 +489,12 @@ const facilities = [
         getIso();
       });
 
+      // 凡例を作成
       const legend = document.getElementById('legend');
       legend.innerHTML = '<strong>施設種別凡例</strong><br>';
       for (const [type, color] of Object.entries(typeColors)) {
-        legend.innerHTML += `<div><span style="display:inline-block;width:10px;height:10px;background-color:${color};margin-right:5px;"></span>${type}</div>`;
+        legend.innerHTML += `<div><span style="display:inline-block;width:10px;height:10px;background-color:${color};margin-right:5px;"></span>${type || '空白'}</div>`;
       }
-
-      document.querySelectorAll('#layers input[type=checkbox]').forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-          const layer = this.dataset.layer;
-          const isVisible = this.checked;
-          markers.forEach(({ marker, layer: markerLayer }) => {
-            if (markerLayer === layer) {
-              marker.getElement().style.display = isVisible ? 'block' : 'none';
-            }
-          });
-        });
-      });
     </script>
   </body>
 </html>
